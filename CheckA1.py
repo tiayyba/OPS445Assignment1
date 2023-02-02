@@ -1,121 +1,326 @@
 #!/usr/bin/env python3
 
-'''
-This check script will run the sample tests on assignment 1 script
-before submitting to blackboard by the students.
-Please note that this script does not check the docstring of the script
-or its functions.
-
-Released by Raymond Chan on Oct 30, 2018
-Updated for the 2021 Fall Semester version on September 28 2021
+import unittest
+from datetime import date, timedelta
+from random import randint
+import sys, os
+import subprocess as sp
+from importlib import import_module
 
 '''
+ASSIGNMENT 1 CHECK SCRIPT
+Winter 2023
+Author: Eric Brauer eric.brauer@senecacollege.ca
 
-import types
-import sys
-import os
-import subprocess
-import glob
-from datetime import date, datetime
+Description:
+TestAfter .. TestDBDA all are testing functions inside students' code. 
+TestFinal will run the code as a subprocess and evaluate the std.output.
 
+The precise requirements of each student-created function are specified elsewhere.
 
-def preliminary_grading(stud_name):
-    message = '\n== Preliminary A1 Test Run Report for '+stud_name+'==\nThe following is your preliminary test run report for assignment 1. Please review the report and fix all the errors identified before submitting your algorithm, python script, and test report to blackboard using the assignment 1 submission link which will be available on Monday, October 25, 2021.\n'
-    return message
+The script assumes that the student's filename is named 'assignment1.py' and exists in the same directory as this check script.
 
-def get_a1_filename():
-    filelist = glob.glob('*.py')
-    try:
-        filelist.remove('a1_template.py')
-    except:
-        pass
-    try:
-        filelist.remove('checkA1.py')
-    except:
-        pass
-    if 'assign1.py' in filelist:
-        return 'assign1.py'
-    elif len(filelist) == 1:
-        return filelist[0]
-    else:
-        raise FileNotFoundError
+NOTE: Feel free to _fork_ and modify this script to suit needs. I will try to fix any issues that arise but this script is provided as-is, with no obligation of warranty or support.
+'''
 
+class TestAfter(unittest.TestCase):
 
-def get_days_between(stop, start=None):
-    if start is None:
-        startdate = datetime.combine(date.today(), datetime.min.time())
-    else:
-        startdate = datetime.strptime(start, '%d-%m-%Y')
-    stopdate = datetime.strptime(stop, '%d-%m-%Y')
-    num_days = (stopdate - startdate).days
-    return num_days
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+        try:
+            self.a1 = import_module(self.filename.split('.')[0])
+        except ModuleNotFoundError:
+            print("Cannot find a function inside your assignment1.py. Do not rename or delete any of the required functions.")
 
+    def test_dtypes(self):
+        "after() is returning string"
+        i = '2023-01-10'
+        error_msg = 'Your after() function should accept one string as arg, and return a string.'
+        self.assertIsInstance(self.a1.after(i), str, error_msg)
 
-def get_username_from_git():
-    p = subprocess.Popen(
-        ['git config user.name'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        shell=True
-        )
-    userid = p.communicate()[0].decode('utf-8').strip("\n")
-    if userid == None:
-        print("You haven't configured your git properly. Run these two commands:")
-        print("git config --global user.name '<your name>'")
-        print("git config --global user.email '<your email>'")
-        userid = 'student'
-    else:
-        return userid
+    def test_dates(self):
+        "after() will give next date"
+        testdat = {
+            '2023-01-23': '2023-01-22',
+            '2022-11-01': '2022-10-31',
+            '2024-06-15': '2024-06-14',
+            '2022-03-01': '2022-02-28',
+            '2022-01-01': '2021-12-31'
+        }
+        error_msg = 'Your after() function is not returning the correct output.'
+        for e, i in testdat.items():
+            self.assertEqual(self.a1.after(i), e, error_msg)
+        
+    def test_leap(self):
+        "after() works with leap year"
+        i = '2020-02-28'
+        e = '2020-02-29'
+        error_msg = "Your after() function is returning the wrong answer for a leap year"
+        self.assertEqual(self.a1.after(i), e, error_msg)
 
 
-if __name__ == '__main__':
-    try:
-        assignment1script = get_a1_filename()
-    except FileNotFoundError:
-        print("Your assignment could not be found.")
-        print("Remember to rename a1_template.py to assign1.py.")
-        print("There should be only one file in your directory beginning in assignment1 and ending in .py.")
-        sys.exit()
+class TestBefore(unittest.TestCase):
 
-    student = get_username_from_git()
-    print(preliminary_grading(student))
-    print('=' * 40)
-    doc_marks = {}  # data dictionary for documentation mark
-    total_doc_marks = 0
-    # test running student's script
-    tests = {1: ['01-01-2019 1', '02-01-2019'],
-             2: ['01-01-2019 -1', '31-12-2018'],
-             3: ['01-06-2020 365', '01-06-2021'],
-             4: ['01-01-2019 365', '01-01-2020'],
-             5: ['01-01-2018 500', '16-05-2019'],
-             6: ['01-99-2018 1', 'Error: wrong month entered'],
-             7: ['32-01-2018 1', 'Error: wrong day entered'],
-             8: ['2018 2', 'Error: wrong date entered'],
-             9: ['28-02-2020 1', '29-02-2020'],
-            10: ['01-03-2020 -1', '29-02-2020'],
-            11: ['29-06-2021 2', '01-07-2021'],
-            12: ['01-01-2021 -366', '01-01-2020']
-            }
-    test_marks = {}
-    for test_no in range(1, len(tests)+1):
-        cmd = 'python3 ' + str(assignment1script) +' '+ tests[test_no][0]
-        print('Test run command', test_no, ':', cmd)
-        p1 = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-        result = p1.communicate()[0].decode('utf-8').strip('\n')
-        expected = tests[test_no][1].strip('\n')
-        if result == expected:
-            print('--test passed--')
-            test_marks[test_no] = 1
-        else:
-            print('--test failed--')
-            print('---- expect:', expected)
-            print('----  given:', result)
-            test_marks[test_no] = 0
-    print('Test Results:', test_marks)
-    total_test_marks = 0
-    for item in test_marks:
-        total_test_marks += test_marks[item] 
-    total_test_marks = total_test_marks / len(tests) * 30 
-    print('Total test run marks: ', total_test_marks)
-    grand_total = total_test_marks + total_doc_marks
-    print('Total marks for script (max. 30):', grand_total)
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+        try:
+            self.a1 = import_module(self.filename.split('.')[0])
+        except ModuleNotFoundError:
+            print("Cannot find a function inside your assignment1.py. Do not rename or delete any of the required functions.")
+
+    def test_dtypes(self):
+        "before() is returning string"
+        i = '2023-01-10'
+        error_msg = 'Your before() function would accept one string as arg, and return a string.'
+        self.assertIsInstance(self.a1.before(i), str, error_msg)
+
+    def test_dates(self):
+        "before() will give previous date"
+        testdat = {
+            '2023-01-23': '2023-01-22',
+            '2022-11-01': '2022-10-31',
+            '2024-06-15': '2024-06-14',
+            '2022-03-01': '2022-02-28',
+            '2022-01-01': '2021-12-31'
+        }
+        error_msg = 'Your before() function is not returning the correct output.'
+        for i, e in testdat.items():
+            self.assertEqual(self.a1.before(i), e, error_msg)
+        
+    def test_leap(self):
+        "before() works with leap year"
+        i = '2020-03-01'
+        e = '2020-02-29'
+        error_msg = "Your before() function is returning the wrong answer for a leap year"
+        self.assertEqual(self.a1.before(i), e, error_msg)
+
+
+class TestLeap(unittest.TestCase):
+
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+        try:
+            self.a1 = import_module(self.filename.split('.')[0])
+        except ModuleNotFoundError:
+            print("Cannot find a function inside your assignment1.py. Do not rename or delete any of the required functions.")
+
+    def test_leap_func(self):
+        "leap_year function exists and returns True/False"
+        test_dat = {
+            2022: False,
+            2020: True,
+            2024: True,
+            2023: False,
+            1960: True,
+            1969: False
+        }
+        error_msg = 'leap_year() not returning correct True/False for a specific year'
+        for i,e in test_dat.items():
+            self.assertEqual(self.a1.leap_year(i), e, error_msg)
+
+
+class TestValidDate(unittest.TestCase):
+
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+        try:
+            self.a1 = import_module(self.filename.split('.')[0])
+        except ModuleNotFoundError:
+            print("Cannot find a function inside your assignment1.py. Do not rename or delete any of the required functions.")
+
+    def test_valid_dates(self):
+        "making sure valid dates return True"
+        test_dat = [
+            '2022-01-25',
+            '2011-03-13',
+            '2001-01-01',
+            '1539-11-30',
+            '2020-02-29',
+            '2038-01-19'
+        ]
+        error_msg = 'valid_date() not returning true for a valid date'
+        for date in test_dat:
+            self.assertEqual(self.a1.valid_date(date), True, error_msg)
+    
+    def test_invalid_dates(self):
+        "making sure invalid dates return False"
+        test_dat = [
+            '2022-25-01',
+            '20-03-13',
+            '2001-20-01',
+            '1539-11-00',
+            '2021-02-29',
+            '2023-04-31'
+        ]
+        error_msg = 'valid_date() not returning false for an invalid date'
+        for date in test_dat:
+            self.assertEqual(self.a1.valid_date(date), False, error_msg)
+
+
+class TestDBDA(unittest.TestCase):
+
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+        try:
+            self.a1 = import_module(self.filename.split('.')[0])
+        except ModuleNotFoundError:
+            print("Cannot find a function inside your assignment1.py. Do not rename or delete any of the required functions.")
+
+    def test_dbda(self):
+        "given a start step and number of days, dbda returns end date"
+        testdates = [
+            '2023-01-23', '2023-01-22',
+            '2022-11-01', '2022-10-31',
+            '2024-06-15', '2024-06-14',
+            '2022-03-01', '2022-02-28',
+            '2022-01-01', '2021-12-31'
+        ]
+        error_msg = 'dbda() not returning the expected end date'
+        for datestr in testdates:
+            numdays = randint(-366, 366)
+            dobj = date.fromisoformat(datestr)
+            deltobj = timedelta(days=numdays)
+            e = str(dobj+deltobj)
+            self.assertEqual(self.a1.dbda(datestr, numdays), e, error_msg)
+
+
+class TestFinal(unittest.TestCase):
+
+    def setUp(self):
+        self.filename = 'assignment1.py'
+        self.pypath = sys.executable
+        error_output = f'{self.filename} cannot be found (HINT: make sure this script AND your file are in the same directory)'
+        file = os.path.join(os.getcwd(), self.filename)
+        self.assertTrue(os.path.exists(file), msg=error_output)
+
+    def test_proper_step(self):
+        "main print returning proper step"
+        steps = [2, 3, 4, 5, 6, 7, 8]
+        expects = [r"182", r"122", r"91", r"73", r"61", r"52", r"46"]
+        for step, expect in zip(steps, expects):
+            input = ['2023-01-25', str(step)]
+            error_msg = (f"\nError in {self.filename}: Incorrect output for wrong letters.\n"
+                    f"I entered: {input}\n"
+                    f"I expected: {expect}")
+            cmd = [self.pypath, self.filename] + input
+            p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+            output, error = p.communicate()
+            if p.returncode != 0:
+                raise IOError("Error running the script.")
+            self.assertRegex(output.decode('utf-8'), expect, error_msg)
+
+    def test_proper_before(self):
+        "output contain 'XX days ago' w/ correct date"
+        testdates = [
+            '2023-01-23', 
+            '2022-11-01', 
+            '2024-06-15', 
+            '2022-03-01', 
+            '2022-01-01',
+            '2020-02-14' 
+        ]
+        error_msg = 'dbda() not returning the expected end date'
+        for datestr in testdates:
+            step = randint(1, 9)
+            numdays = round(365 / step) * -1
+            dobj = date.fromisoformat(datestr)
+            deltobj = timedelta(days=numdays)
+            input = [datestr, str(step)]
+            e = str(dobj+deltobj)
+            cmd = [self.pypath, self.filename] + input
+            p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+            output, error = p.communicate()
+            if p.returncode != 0:
+                raise IOError("Error running the script.")
+            self.assertRegex(output.decode('utf-8'), e, error_msg)
+
+    def test_proper_after(self):
+        "output contain XX days from now w/ correct date"
+        testdates = [
+            '2023-01-23', 
+            '2022-11-01', 
+            '2024-06-15', 
+            '2022-03-01', 
+            '2022-01-01',
+            '2020-02-14' 
+        ]
+        error_msg = 'dbda() not returning the expected end date'
+        for datestr in testdates:
+            step = randint(1, 9)
+            numdays = round(365 / step)
+            dobj = date.fromisoformat(datestr)
+            deltobj = timedelta(days=numdays)
+            input = [datestr, str(step)]
+            e = str(dobj+deltobj)
+            cmd = [self.pypath, self.filename] + input
+            p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+            output, error = p.communicate()
+            if p.returncode != 0:
+                raise IOError("Error running the script.")
+            self.assertRegex(output.decode('utf-8'), e, error_msg)
+        
+
+    def test_invalid_date(self):
+        "output contains usage when bad date"
+        test_dat = [
+            '2022-25-01',
+            '20-03-13',
+            '2001-20-01',
+            '1539-11-00',
+            '2021-02-29',
+            '2023-04-31'
+        ]
+        error_msg = "Error: Entering an invalid date should call the usage function, return a usage message, and exit."
+        e = r'(?i)Usage.*'  # ignore case
+        for datestr in test_dat:
+            input = [datestr, '2']
+            cmd = [self.pypath, self.filename] + input
+            p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+            output, error = p.communicate()
+            self.assertRegex(output.decode('utf-8'), e, error_msg)
+
+
+    def test_invalid_step(self):
+        "output contains usage when bad step"
+        error_msg = "Error: Entering an invalid step should call the usage function, return a usage message, and exit."
+        e = r'(?i)Usage.*'  # ignore case
+        input = ['2023-01-25', '0']
+        cmd = [self.pypath, self.filename] + input
+        p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+        output, error = p.communicate()
+        self.assertRegex(output.decode('utf-8'), e, error_msg)
+
+    def test_arg_length(self):
+        "when args != 2, output contains usage"
+        error_msg = "Error: Entering wrong number of args should call the usage function, return a usage message, and exit."
+        e = r'(?i)Usage.*'  # ignore case
+        input = ['2023-01-25']
+        cmd = [self.pypath, self.filename] + input
+        p = sp.Popen(cmd, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+        output, error = p.communicate()
+        self.assertRegex(output.decode('utf-8'), e, error_msg)
+
+if __name__ == "__main__":
+    unittest.main(buffer=True)  # buffer line suppresses a1 printlines from check script output.
+
+
