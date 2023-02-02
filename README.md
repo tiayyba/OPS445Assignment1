@@ -1,4 +1,3 @@
-# OPS445Assignment1
 # Setup
 
 This will download Assignment 1 locally, allowing you to work on your scripts and upload (push) them back up to GitHub.
